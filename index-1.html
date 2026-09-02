@@ -1,0 +1,1591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sealbox — paired, anonymous, sealed</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,500&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qr-scanner/1.4.2/qr-scanner.umd.min.js"></script>
+<style>
+  :root{
+    --bg: #F3ECDD;
+    --surface: #FBF6EA;
+    --surface-2: #F0E6D2;
+    --text: #241A2E;
+    --text-muted: #6E6076;
+    --accent: #B34A2A;
+    --accent-ink: #FBF6EA;
+    --accent-2: #6C55C2;
+    --border: rgba(36,26,46,0.14);
+    --danger: #A83232;
+    --ok: #4C7A4C;
+    --shadow: 0 1px 0 rgba(36,26,46,0.05);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg: #16121F; --surface: #221B31; --surface-2: #2A2140;
+      --text: #F4EFFB; --text-muted: #A79BC0; --accent: #DD724A;
+      --accent-ink: #1B1424; --accent-2: #A292F2; --border: rgba(244,239,251,0.14);
+      --danger: #E28080; --ok: #7FBE7F;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg: #16121F; --surface: #221B31; --surface-2: #2A2140;
+    --text: #F4EFFB; --text-muted: #A79BC0; --accent: #DD724A;
+    --accent-ink: #1B1424; --accent-2: #A292F2; --border: rgba(244,239,251,0.14);
+    --danger: #E28080; --ok: #7FBE7F;
+  }
+
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; }
+  body{ background:var(--bg); color:var(--text); font-family:'Inter', system-ui, -apple-system, sans-serif; min-height:100vh; -webkit-font-smoothing:antialiased; accent-color:var(--accent); }
+  .wrap{ max-width:460px; margin:0 auto; padding:26px 18px 40px; min-height:100vh; display:flex; flex-direction:column; }
+  h1,h2,h3{ font-family:'Newsreader', Georgia, serif; font-weight:600; letter-spacing:-0.01em; margin:0; }
+  a{ color:inherit; }
+  .mono{ font-family:'IBM Plex Mono', 'SFMono-Regular', monospace; }
+
+  .seal{ width:48px; height:48px; flex-shrink:0; }
+  .seal-hero{ width:72px; height:72px; margin:0 auto 20px; }
+  .seal-pulse{ animation: pulse 2.1s ease-in-out infinite; }
+  @keyframes pulse{ 0%,100%{ transform:scale(1); opacity:1; } 50%{ transform:scale(1.08); opacity:.75; } }
+  .seal-drop{ animation: seal-drop 650ms cubic-bezier(.2,.9,.25,1.15) both; }
+  @keyframes seal-drop{ 0%{ transform:scale(1.8) rotate(-12deg); opacity:0; } 60%{ opacity:1; } 100%{ transform:scale(1) rotate(0); opacity:1; } }
+  @media (prefers-reduced-motion: reduce){ .seal-hero, .seal-pulse{ animation:none; } }
+
+  .topbar{ display:flex; align-items:center; justify-content:space-between; margin-bottom:26px; gap:10px; }
+  .brand{ display:flex; align-items:center; gap:10px; min-width:0; }
+  .brand-name{ font-family:'Newsreader', serif; font-size:18px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .icon-btn{ background:none; border:1px solid var(--border); border-radius:9px; width:36px; height:36px; display:flex; align-items:center; justify-content:center; cursor:pointer; color:var(--text-muted); flex-shrink:0; font-size:15px; }
+  .icon-btn:hover{ color:var(--danger); border-color:var(--danger); }
+  .link-btn{ background:none; border:none; color:var(--text-muted); font-family:'Inter', sans-serif; font-size:13px; cursor:pointer; padding:6px 0; flex-shrink:0; }
+  .link-btn:hover{ color:var(--text); }
+
+  .hero{ text-align:center; padding:14px 0 8px; }
+  .hero h1,.hero h2{ font-size:28px; line-height:1.18; margin-bottom:12px; }
+  .hero p{ color:var(--text-muted); font-size:14.5px; line-height:1.55; max-width:340px; margin:0 auto 28px; }
+
+  button.primary{ width:100%; background:var(--accent); color:var(--accent-ink); border:none; border-radius:10px; padding:14px 18px; font-family:'Inter', sans-serif; font-size:15px; font-weight:600; cursor:pointer; transition:transform .12s ease, opacity .12s ease; }
+  button.primary:active{ transform:scale(0.985); }
+  button.primary:disabled{ opacity:.45; cursor:default; }
+  button.secondary{ width:100%; background:transparent; color:var(--text); border:1px solid var(--border); border-radius:10px; padding:13px 18px; font-family:'Inter', sans-serif; font-size:14.5px; font-weight:500; cursor:pointer; }
+  button.danger-solid{ width:100%; background:var(--danger); color:var(--accent-ink); border:none; border-radius:10px; padding:13px 18px; font-family:'Inter', sans-serif; font-size:14.5px; font-weight:600; cursor:pointer; }
+  .quiet-note{ text-align:center; font-size:12px; color:var(--text-muted); line-height:1.6; margin-top:20px; }
+  .text-input{ width:100%; background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:13px 14px; font-size:15px; color:var(--text); outline:none; font-family:'Inter', sans-serif; }
+  .text-input:focus{ border-color:var(--accent-2); }
+
+  .anon-badge{ display:inline-flex; align-items:center; gap:6px; background:var(--surface-2); border:1px solid var(--border); border-radius:20px; padding:6px 13px; font-size:11.5px; color:var(--text-muted); font-family:'Inter', sans-serif; letter-spacing:0.01em; }
+  .anon-badge-wrap{ text-align:center; margin-bottom:22px; }
+
+  .pair-card{ display:flex; align-items:center; gap:12px; background:var(--surface); border:1px solid var(--border); border-radius:13px; padding:14px; margin-bottom:10px; cursor:pointer; text-align:left; }
+  .pair-card .meta{ flex:1; min-width:0; }
+  .pair-card .label{ font-size:14.5px; font-weight:500; }
+  .pair-card .status{ font-size:12px; color:var(--text-muted); margin-top:3px; display:flex; align-items:center; gap:6px; }
+  .dot{ width:7px; height:7px; border-radius:50%; flex-shrink:0; }
+  .dot.paired{ background:var(--ok); }
+  .dot.waiting{ background:var(--accent); }
+  .section-label{ font-size:12.5px; color:var(--text-muted); margin:0 0 12px 2px; }
+  .new-pair-fab{ background:var(--accent); color:var(--accent-ink); border:none; border-radius:10px; padding:13px 18px; font-size:14.5px; font-weight:600; cursor:pointer; width:100%; margin-top:6px; }
+
+  .card{ background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:18px; }
+  .share-card{ margin-bottom:18px; }
+  .share-card .label{ font-size:12px; color:var(--text-muted); margin-bottom:9px; }
+  .share-row{ display:flex; align-items:center; gap:8px; background:var(--surface-2); border-radius:9px; padding:11px 12px; }
+  .share-row .url{ flex:1; font-family:'IBM Plex Mono', monospace; font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .copy-btn{ background:var(--accent); color:var(--accent-ink); border:none; border-radius:7px; padding:8px 12px; font-size:12.5px; font-weight:600; cursor:pointer; flex-shrink:0; }
+  .waiting-state{ text-align:center; padding:20px 4px 4px; }
+  .waiting-state h2{ font-size:19px; margin-bottom:8px; }
+  .waiting-state p{ color:var(--text-muted); font-size:13.5px; line-height:1.55; max-width:300px; margin:0 auto 22px; }
+
+  .status-row{ display:flex; align-items:center; gap:6px; font-size:12px; color:var(--text-muted); margin-bottom:14px; }
+  .thread{ flex:1; overflow-y:auto; padding:4px 2px 10px; display:flex; flex-direction:column; gap:10px; min-height:120px; max-height:50vh; }
+  .bubble-row{ display:flex; }
+  .bubble-row.me{ justify-content:flex-end; }
+  .bubble-row.them{ justify-content:flex-start; }
+  .bubble{ max-width:78%; padding:10px 13px; border-radius:14px; font-size:14.5px; line-height:1.48; white-space:pre-wrap; word-break:break-word; }
+  .bubble-row.me .bubble{ background:var(--accent); color:var(--accent-ink); border-bottom-right-radius:4px; }
+  .bubble-row.them .bubble{ background:var(--surface); border:1px solid var(--border); border-bottom-left-radius:4px; }
+  .bubble.pending{ opacity:.55; font-style:italic; }
+  .bubble.bubble-image{ padding:5px; }
+  .bubble.bubble-audio{ padding:10px 12px; min-width:190px; }
+  .bubble-time{ font-size:10.5px; color:var(--text-muted); margin-top:4px; font-family:'IBM Plex Mono', monospace; }
+  .bubble-row.me .bubble-time{ text-align:right; }
+
+  .msg-img{ display:block; max-width:100%; max-height:240px; border-radius:10px; cursor:zoom-in; }
+  .audio-row{ display:flex; align-items:center; gap:10px; }
+  .audio-row audio{ height:32px; max-width:150px; }
+  .audio-row .dur{ font-family:'IBM Plex Mono', monospace; font-size:11.5px; opacity:.85; flex-shrink:0; }
+  .transcript{ margin-top:8px; font-size:12.5px; font-style:italic; opacity:.85; border-top:1px solid rgba(128,128,128,.25); padding-top:7px; line-height:1.45; }
+
+  .composer{ display:flex; gap:7px; align-items:flex-end; margin-top:14px; }
+  .composer textarea{ flex:1; background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:11px 13px; font-size:14.5px; color:var(--text); line-height:1.4; resize:none; outline:none; max-height:110px; font-family:'Inter', sans-serif; }
+  .composer textarea:focus{ border-color:var(--accent-2); }
+  .round-btn{ background:var(--surface); border:1px solid var(--border); color:var(--text-muted); border-radius:11px; width:44px; height:44px; flex-shrink:0; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:17px; }
+  .round-btn:hover{ color:var(--text); }
+  .send-btn{ background:var(--accent); color:var(--accent-ink); border:none; border-radius:11px; width:44px; height:44px; flex-shrink:0; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:16px; }
+  .send-btn:disabled{ opacity:.4; cursor:default; }
+  input[type=file]{ display:none; }
+
+  .recording-row{ display:flex; align-items:center; gap:10px; margin-top:14px; background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:9px 12px; }
+  .rec-dot{ width:9px; height:9px; border-radius:50%; background:var(--danger); animation:recblink 1.1s ease-in-out infinite; flex-shrink:0; }
+  @keyframes recblink{ 0%,100%{ opacity:1; } 50%{ opacity:.25; } }
+  .rec-time{ font-family:'IBM Plex Mono', monospace; font-size:13px; flex:1; }
+  .rec-cancel, .rec-stop{ border:none; border-radius:9px; padding:8px 13px; font-size:12.5px; font-weight:600; cursor:pointer; }
+  .rec-cancel{ background:transparent; color:var(--text-muted); border:1px solid var(--border); }
+  .rec-stop{ background:var(--accent); color:var(--accent-ink); }
+  .uploading-row{ display:flex; align-items:center; gap:10px; margin-top:14px; font-size:12.5px; color:var(--text-muted); }
+
+  .empty{ text-align:center; padding:30px 10px; color:var(--text-muted); }
+  .empty .seal{ opacity:.5; margin:0 auto 12px; }
+  .empty p{ font-size:13.5px; line-height:1.6; max-width:270px; margin:0 auto; }
+
+  .toast{ position:fixed; left:50%; bottom:24px; transform:translateX(-50%) translateY(10px); background:var(--text); color:var(--bg); font-size:13px; padding:10px 16px; border-radius:20px; opacity:0; pointer-events:none; transition:opacity .2s ease, transform .2s ease; white-space:nowrap; z-index:10; max-width:88vw; overflow:hidden; text-overflow:ellipsis; }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+
+  .skeleton{ background:linear-gradient(90deg, var(--surface-2) 25%, var(--border) 37%, var(--surface-2) 63%); background-size:400% 100%; animation:shimmer 1.4s ease infinite; border-radius:6px; height:14px; }
+  @keyframes shimmer{ 0%{background-position:100% 0} 100%{background-position:0 0} }
+
+  .confirm-backdrop{ position:fixed; inset:0; background:rgba(20,14,26,0.5); display:flex; align-items:flex-end; justify-content:center; z-index:20; padding:0; }
+  .confirm-sheet{ background:var(--surface); border-radius:18px 18px 0 0; padding:22px 20px 26px; width:100%; max-width:460px; }
+  .confirm-sheet h3{ font-size:18px; margin-bottom:10px; }
+  .confirm-sheet p{ font-size:13.5px; color:var(--text-muted); line-height:1.55; margin-bottom:12px; }
+  .confirm-actions{ display:flex; flex-direction:column; gap:9px; }
+
+  .lightbox{ position:fixed; inset:0; background:rgba(10,7,14,0.92); z-index:30; display:flex; align-items:center; justify-content:center; padding:20px; cursor:zoom-out; }
+  .lightbox img{ max-width:100%; max-height:100%; border-radius:8px; }
+
+  .safety-code{ font-size:16px; letter-spacing:1.5px; background:var(--surface-2); border-radius:9px; padding:11px 13px; margin:8px 0 4px; text-align:center; }
+
+  .sponsor-card{ display:block; background:var(--surface); border:1px dashed var(--border); border-radius:12px; padding:13px 15px; margin-top:22px; text-decoration:none; color:inherit; }
+  .sponsor-label{ display:block; font-size:10.5px; letter-spacing:0.06em; text-transform:uppercase; color:var(--text-muted); margin-bottom:5px; }
+  .sponsor-name{ display:block; font-size:14px; font-weight:600; }
+  .sponsor-tagline{ display:block; font-size:12.5px; color:var(--text-muted); margin-top:3px; line-height:1.4; }
+
+  /* Covers the screen the instant the tab/app backgrounds, so the OS's
+     app-switcher preview shows this instead of whatever was on screen.
+     This is the one real, honest thing a web page can do here — it is
+     not screenshot or screen-recording prevention, which no browser API
+     allows a page to detect or block at all. */
+  .privacy-shield{ position:fixed; inset:0; background:var(--bg); z-index:50; display:none; align-items:center; justify-content:center; }
+  .privacy-shield .seal{ width:56px; height:56px; opacity:0.5; }
+  .qr-box{ background:#fff; border-radius:10px; padding:12px; display:flex; align-items:center; justify-content:center; margin:10px 0; }
+  .qr-box img, .qr-box canvas, .qr-box table{ display:block; }
+  .ttl-row{ display:flex; gap:7px; flex-wrap:wrap; margin-top:8px; }
+  .ttl-opt{ background:var(--surface-2); border:1px solid var(--border); border-radius:8px; padding:7px 11px; font-size:12.5px; cursor:pointer; color:var(--text-muted); }
+  .ttl-opt.active{ background:var(--accent); color:var(--accent-ink); border-color:var(--accent); }
+  .flame-badge{ font-size:10.5px; opacity:.8; margin-right:4px; }
+  .burn-armed{ background:var(--accent) !important; color:var(--accent-ink) !important; border-color:var(--accent) !important; }
+  .scan-overlay{ position:fixed; inset:0; background:#000; z-index:40; display:flex; flex-direction:column; }
+  .scan-overlay video{ flex:1; width:100%; object-fit:cover; }
+  .scan-overlay .scan-bar{ padding:16px; background:var(--surface); display:flex; flex-direction:column; gap:10px; }
+  .scan-result{ text-align:center; font-size:13.5px; }
+  .expiry-note{ font-size:11.5px; color:var(--text-muted); text-align:center; margin-top:10px; }
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+<div class="toast" id="toast"></div>
+<div class="privacy-shield" id="privacyShield"><svg class="seal" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="32" cy="32" r="30" fill="var(--accent)"/><path d="M32 46 L24 30 H29 L32 37 L35 30 H40 L32 46 Z" fill="var(--accent-ink)"/></svg></div>
+
+<script>
+/* ============================================================
+   CRYPTO CORE
+   - Each pairing does one ECDH (P-256) key exchange.
+   - The raw ECDH secret is never used directly to encrypt anything.
+     It only seeds two one-way HKDF chains (A→B and B→A).
+   - Every single message advances its chain one HMAC step and is
+     encrypted with a key that exists only for that one message.
+     The chain key is overwritten in place after each step, so a
+     device compromised later cannot recompute earlier message keys
+     — that's what gives this forward secrecy, not just "a shared key".
+   ============================================================ */
+function bufToB64(buf){ const b=new Uint8Array(buf); let s=''; const CH=0x8000; for(let i=0;i<b.length;i+=CH) s+=String.fromCharCode.apply(null, b.subarray(i, i+CH)); return btoa(s); }
+function b64ToBuf(b64){ const bin=atob(b64); const a=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) a[i]=bin.charCodeAt(i); return a.buffer; }
+
+async function generatePairKeys(){
+  const pair = await crypto.subtle.generateKey({name:'ECDH', namedCurve:'P-256'}, true, ['deriveBits']);
+  const publicKeyJwk = await crypto.subtle.exportKey('jwk', pair.publicKey);
+  const privateKeyJwk = await crypto.subtle.exportKey('jwk', pair.privateKey);
+  return { publicKeyJwk, privateKeyJwk };
+}
+async function deriveRootSecret(myPrivateJwk, theirPublicJwk){
+  const priv = await crypto.subtle.importKey('jwk', myPrivateJwk, {name:'ECDH', namedCurve:'P-256'}, false, ['deriveBits']);
+  const pub = await crypto.subtle.importKey('jwk', theirPublicJwk, {name:'ECDH', namedCurve:'P-256'}, false, []);
+  const bits = await crypto.subtle.deriveBits({name:'ECDH', public: pub}, priv, 256);
+  return new Uint8Array(bits);
+}
+async function hkdf(secretBytes, saltStr, infoStr){
+  const keyMaterial = await crypto.subtle.importKey('raw', secretBytes, 'HKDF', false, ['deriveBits']);
+  const bits = await crypto.subtle.deriveBits(
+    { name:'HKDF', hash:'SHA-256', salt: new TextEncoder().encode(saltStr), info: new TextEncoder().encode(infoStr) },
+    keyMaterial, 256
+  );
+  return new Uint8Array(bits);
+}
+async function hmacSha256(keyBytes, dataBytes){
+  const key = await crypto.subtle.importKey('raw', keyBytes, {name:'HMAC', hash:'SHA-256'}, false, ['sign']);
+  return new Uint8Array(await crypto.subtle.sign('HMAC', key, dataBytes));
+}
+async function ratchetStep(chainKeyBytes){
+  const nextChainKey = await hmacSha256(chainKeyBytes, new Uint8Array([0x01]));
+  const messageKeySeed = await hmacSha256(chainKeyBytes, new Uint8Array([0x02]));
+  const aesKey = await crypto.subtle.importKey('raw', messageKeySeed, {name:'AES-GCM'}, false, ['encrypt','decrypt']);
+  return { nextChainKey, aesKey };
+}
+async function encryptBytes(aesKey, buf){
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = await crypto.subtle.encrypt({name:'AES-GCM', iv}, aesKey, buf);
+  return { ciphertext: bufToB64(ct), iv: bufToB64(iv) };
+}
+async function decryptBytes(aesKey, msg){
+  return crypto.subtle.decrypt({name:'AES-GCM', iv:b64ToBuf(msg.iv)}, aesKey, b64ToBuf(msg.ciphertext));
+}
+/* ---- fixed-size padding: hides text length (message type is already visible via the
+   cleartext `type` field, so padding targets the one signal that isn't already exposed) ---- */
+const PAD_BUCKETS = [64,256,1024,4096,16384,65536,98304,131072,163840];
+function padPlaintext(bytes){
+  const total = 4 + bytes.length;
+  const bucket = PAD_BUCKETS.find(b => b >= total) || total;
+  const out = new Uint8Array(bucket);
+  new DataView(out.buffer).setUint32(0, bytes.length);
+  out.set(bytes, 4);
+  return out;
+}
+function unpadPlaintext(buf){
+  const u8 = new Uint8Array(buf);
+  const len = new DataView(u8.buffer, u8.byteOffset, u8.byteLength).getUint32(0);
+  return u8.slice(4, 4 + len);
+}
+/* ---- envelope: type/mime/duration/transcript all live INSIDE the ciphertext now.
+   The message doc on the wire only ever carries seq/burn/ciphertext/iv — a relay
+   watching the room can no longer tell a text message from a photo from a voice
+   note, or tell that a voice note had a caption, just from the plaintext fields. ---- */
+function encodeEnvelope(header, contentBytes){
+  const headerBytes = new TextEncoder().encode(JSON.stringify(header));
+  const out = new Uint8Array(2 + headerBytes.length + contentBytes.length);
+  new DataView(out.buffer).setUint16(0, headerBytes.length);
+  out.set(headerBytes, 2);
+  out.set(contentBytes, 2 + headerBytes.length);
+  return out;
+}
+function decodeEnvelope(bytes){
+  const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const hLen = dv.getUint16(0);
+  const header = JSON.parse(new TextDecoder().decode(bytes.slice(2, 2 + hLen)));
+  return { header, content: bytes.slice(2 + hLen) };
+}
+/* ---- post-compromise healing: NOT an automatic in-band DH ratchet.
+   An earlier version of this tried to have each side splice a fresh
+   Diffie-Hellman secret into its chain on its own timer (every 20
+   messages, independently). Tracing through it: both sides share a
+   single ratchet identity key across both chain directions, and
+   nothing stops both sides from hitting their own trigger before
+   they've each seen the other's latest rotation — two people just
+   chatting back and forth can do this by accident. When that
+   happens the two sides derive DIFFERENT "matching" secrets, and
+   every message after that point silently fails to decrypt, with
+   no way to detect it until it's already broken. That's a correctness
+   bug I can reason my way into, but not reliably reason my way out
+   of without a way to actually run the two-sided protocol and watch
+   for divergence — so instead of patching it further on paper,
+   healing here is a deliberate, unilateral, race-free reset (see
+   startFreshKeys below): generate a brand new identity keypair,
+   publish the new public half to the room doc, and let both sides
+   re-derive their chains from scratch against it. A full replacement
+   of the derivation basis can't diverge the way an in-band splice
+   can, because there's no shared timing assumption to get wrong. ---- */
+function pubKeyId(jwk){ return jwk ? jwk.x + ':' + jwk.y : null; }
+async function startFreshKeys(roomId, pair){
+  const fresh = await generatePairKeys();
+  await updateRoom(roomId, pair.role === 'A' ? { keyA: fresh.publicKeyJwk } : { keyB: fresh.publicKeyJwk });
+  upsertPair({ roomId, privateKeyJwk: fresh.privateKeyJwk });
+  clearRatchetState(roomId);
+}
+async function computeSafetyNumber(keyAJwk, keyBJwk){
+  const a = keyAJwk.x + ':' + keyAJwk.y, b = keyBJwk.x + ':' + keyBJwk.y;
+  const hashBuf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode([a,b].sort().join('|')));
+  const bytes = new Uint8Array(hashBuf);
+  const groups = [];
+  for (let i=0;i<6;i++) groups.push(String((bytes[i*2]<<8 | bytes[i*2+1]) % 100000).padStart(5,'0'));
+  return groups.join('  ');
+}
+
+/* ---- local passphrase vault (wraps the identity private key at rest) ---- */
+async function deriveVaultKey(passphrase, saltBytes){
+  const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(passphrase), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey({name:'PBKDF2', salt:saltBytes, iterations:210000, hash:'SHA-256'}, base, {name:'AES-GCM', length:256}, false, ['encrypt','decrypt']);
+}
+async function pbkdf2VerifierHash(secret, saltBytes){
+  const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(secret), 'PBKDF2', false, ['deriveBits']);
+  const bits = await crypto.subtle.deriveBits({name:'PBKDF2', salt:saltBytes, iterations:210000, hash:'SHA-256'}, base, 256);
+  return bufToB64(bits);
+}
+
+/* ---- device-wide app lock + self-destruct ----
+   Separate from the per-pairing passphrase vault above: this gates opening
+   the app at all, on this device, regardless of how many pairings exist.
+   The attempt counter is persisted (not held in a JS variable) specifically
+   so reloading the page can't reset it — that's the one thing that would
+   make the whole feature pointless. "Wipe" here means: best-effort delete
+   every pairing this device is party to from the shared store (so the
+   conversation is gone for the other side too, not just hidden from this
+   device), then clear every last byte of localStorage, including the lock
+   itself. What this can't do: reach into the other party's device, undo
+   anything they already have cached locally, or guarantee the underlying
+   disk sectors this browser used are securely overwritten — clearing
+   localStorage removes it from the browser's view, not necessarily from
+   every trace on the physical device. Called out here and in the UI rather
+   than left implied, because "fully unrecoverable" is a strong claim and
+   the honest version of it has real edges. */
+const APP_LOCK_KEY = 'sealbox_app_lock';
+const APP_LOCK_ATTEMPTS_KEY = 'sealbox_app_lock_attempts';
+function loadAppLock(){ try{ return JSON.parse(localStorage.getItem(APP_LOCK_KEY)); } catch(e){ return null; } }
+function saveAppLock(cfg){ localStorage.setItem(APP_LOCK_KEY, JSON.stringify(cfg)); }
+function getLockAttempts(){ return parseInt(localStorage.getItem(APP_LOCK_ATTEMPTS_KEY) || '0', 10); }
+function setLockAttempts(n){ localStorage.setItem(APP_LOCK_ATTEMPTS_KEY, String(n)); }
+async function selfDestructDevice(){
+  try{
+    const pairs = loadPairs();
+    await Promise.all(pairs.map(p => deleteConversation(p.roomId).catch(()=>{})));
+  } catch(e){ /* best effort — proceed to local wipe regardless */ }
+  try{ localStorage.clear(); } catch(e){}
+  app.innerHTML = `
+    <div class="hero">
+      ${sealSvg('seal seal-hero')}
+      <h2>This device is wiped</h2>
+      <p>Every pairing and message stored here is gone, and so is the passcode itself — there's nothing saved on this device to unlock or recover. Reload this page to start over from nothing.</p>
+    </div>`;
+}
+const DECOY_MARKER = 'sealbox-decoy-ok-v1';
+async function lockPairWithPassphrase(roomId, pairEntry, passphrase, decoyPassphrase){
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const vaultKey = await deriveVaultKey(passphrase, salt);
+  const payload = JSON.stringify({ privateKeyJwk: pairEntry.privateKeyJwk });
+  const enc = await encryptBytes(vaultKey, new TextEncoder().encode(payload));
+  const entry = { roomId, locked:true, saltB64: bufToB64(salt), encPrivateKey: enc.ciphertext, encPrivateKeyIv: enc.iv, privateKeyJwk: null };
+  if (decoyPassphrase){
+    const dsalt = crypto.getRandomValues(new Uint8Array(16));
+    const dkey = await deriveVaultKey(decoyPassphrase, dsalt);
+    const denc = await encryptBytes(dkey, new TextEncoder().encode(DECOY_MARKER));
+    entry.decoySaltB64 = bufToB64(dsalt);
+    entry.decoyCheck = denc.ciphertext;
+    entry.decoyCheckIv = denc.iv;
+  }
+  upsertPair(entry);
+}
+// Tries the decoy passphrase first (if one is configured), then the real one.
+// Both paths fail with the identical error/message, so a wrong guess never reveals
+// whether a decoy exists at all.
+async function unlockPair(pairEntry, passphrase){
+  if (pairEntry.decoySaltB64){
+    try{
+      const dsalt = new Uint8Array(b64ToBuf(pairEntry.decoySaltB64));
+      const dkey = await deriveVaultKey(passphrase, dsalt);
+      const plainBuf = await decryptBytes(dkey, { ciphertext: pairEntry.decoyCheck, iv: pairEntry.decoyCheckIv });
+      if (new TextDecoder().decode(plainBuf) === DECOY_MARKER){
+        return { ...pairEntry, decoy: true };
+      }
+    } catch(e){ /* not the decoy passphrase — fall through to the real one */ }
+  }
+  const salt = new Uint8Array(b64ToBuf(pairEntry.saltB64));
+  const vaultKey = await deriveVaultKey(passphrase, salt);
+  const plainBuf = await decryptBytes(vaultKey, { ciphertext: pairEntry.encPrivateKey, iv: pairEntry.encPrivateKeyIv });
+  const parsed = JSON.parse(new TextDecoder().decode(plainBuf));
+  return { ...pairEntry, privateKeyJwk: parsed.privateKeyJwk };
+}
+
+/* ---- per-message ratchet state (local only — never synced to storage) ---- */
+function ratchetStorageKey(roomId){ return 'sealbox_ratchet_'+roomId; }
+function loadRatchetState(roomId){ try{ return JSON.parse(localStorage.getItem(ratchetStorageKey(roomId))); } catch(e){ return null; } }
+function saveRatchetState(roomId, state){ localStorage.setItem(ratchetStorageKey(roomId), JSON.stringify(state)); }
+function clearRatchetState(roomId){ localStorage.removeItem(ratchetStorageKey(roomId)); }
+function clearRatchetCache(roomId){
+  const state = loadRatchetState(roomId);
+  if (state){ state.cache = {}; saveRatchetState(roomId, state); }
+}
+// Opaque per-pairing sender tags: derived once from the ECDH root, independently
+// computable by both sides (HMAC of the root with each role name), so neither
+// device has to exchange or announce anything extra. A relay watching the room
+// can still tell "same party sent both of these" (the tag is stable for the
+// life of the pairing) but can no longer read the literal 'A'/'B' role labels
+// off the wire — it's opacity, not unlinkability, and that distinction is worth
+// being upfront about rather than overselling it as anonymous-per-message.
+async function deriveRoleTag(rootBytes, role){
+  const h = await hmacSha256(rootBytes, new TextEncoder().encode('sealbox-role-'+role));
+  return bufToB64(h).slice(0,12).replace(/[+/=]/g,'');
+}
+async function getOrInitRatchet(roomId, pair, room){
+  let state = loadRatchetState(roomId);
+  if (state) return state;
+  const root = await deriveRootSecret(pair.privateKeyJwk, pair.role === 'A' ? room.keyB : room.keyA);
+  const chainA2B = await hkdf(root, roomId, 'sealbox-chain-A2B-v1');
+  const chainB2A = await hkdf(root, roomId, 'sealbox-chain-B2A-v1');
+  const sendChain = pair.role === 'A' ? chainA2B : chainB2A;
+  const recvChain = pair.role === 'A' ? chainB2A : chainA2B;
+  const myTag = await deriveRoleTag(root, pair.role);
+  const peerTag = await deriveRoleTag(root, pair.role === 'A' ? 'B' : 'A');
+  state = {
+    sendChainKeyB64: bufToB64(sendChain), sendIndex:0,
+    recvChainKeyB64: bufToB64(recvChain), recvIndex:0,
+    cache:{},
+    // Recorded so a later change to the peer's identity key — whether from
+    // startFreshKeys or something more concerning — can be noticed instead
+    // of silently producing chains that no longer match theirs.
+    peerIdentityKeyId: pubKeyId(pair.role === 'A' ? room.keyB : room.keyA),
+    myTag, peerTag
+  };
+  saveRatchetState(roomId, state);
+  return state;
+}
+async function takeSendStep(roomId, state){
+  const { nextChainKey, aesKey } = await ratchetStep(new Uint8Array(b64ToBuf(state.sendChainKeyB64)));
+  const seq = state.sendIndex;
+  state.sendChainKeyB64 = bufToB64(nextChainKey);
+  state.sendIndex += 1;
+  saveRatchetState(roomId, state);
+  return { aesKey, seq };
+}
+async function decodePeerMessage(aesKey, m){
+  const raw = await decryptBytes(aesKey, m);
+  const { header, content } = decodeEnvelope(unpadPlaintext(raw));
+  if (header.type === 'image') return { type:'image', mime:header.mime||'image/jpeg', dataB64: bufToB64(content) };
+  if (header.type === 'audio') return { type:'audio', mime:header.mime||'audio/webm', duration:header.duration, dataB64: bufToB64(content), transcript: header.transcript || null };
+  return { type:'text', text: new TextDecoder().decode(content) };
+}
+async function processIncomingForCache(roomId, pair, state, messages){
+  let changed = false;
+  // Sort by the sender's chain index, not by (now-coarsened) timestamp — seq is the
+  // only value that's guaranteed to reflect true send order, which the ratchet requires.
+  const peerMsgs = messages.filter(m => m.from === state.peerTag && !state.cache[m.id]).sort((a,b)=> (a.seq??0)-(b.seq??0));
+  for (const m of peerMsgs){
+    if (typeof m.seq !== 'number' || m.seq !== state.recvIndex){
+      state.cache[m.id] = { type:'error', text:'Could not unseal this message.' };
+      changed = true;
+      continue;
+    }
+    const { nextChainKey, aesKey } = await ratchetStep(new Uint8Array(b64ToBuf(state.recvChainKeyB64)));
+    try{ state.cache[m.id] = await decodePeerMessage(aesKey, m); }
+    catch(e){ state.cache[m.id] = { type:'error', text:'Could not unseal this message.' }; }
+    state.recvChainKeyB64 = bufToB64(nextChainKey);
+    state.recvIndex += 1;
+    changed = true;
+    if (m.burn) scheduleBurn(roomId, m.id);
+  }
+  // Cache is a local optimization keyed by message id — once a message no longer
+  // exists in the shared list (deleted, expired, burned), there's nothing to keep.
+  const liveIds = new Set(messages.map(m => m.id));
+  for (const id of Object.keys(state.cache)){
+    if (!liveIds.has(id)){ delete state.cache[id]; changed = true; }
+  }
+  if (changed) saveRatchetState(roomId, state);
+}
+function scheduleBurn(roomId, messageId){
+  setTimeout(() => { deleteMessage(messageId).catch(()=>{}); }, 4000);
+}
+function b64ToBlob(b64, mime){ return new Blob([b64ToBuf(b64)], { type: mime }); }
+
+/* ============ storage layer: db capability with local fallback ============ */
+let db = null;
+let usingSharedStore = false;
+async function initStore(){
+  try{
+    if (window.claude && typeof window.claude.use === 'function'){
+      db = await window.claude.use('db');
+      usingSharedStore = !!db;
+    }
+  } catch(e){ db = null; usingSharedStore = false; }
+}
+const LOCAL_KEY = 'sealbox_shared_store_v2';
+function readLocal(){ try{ return JSON.parse(localStorage.getItem(LOCAL_KEY) || '{"rooms":{},"messages":[]}'); } catch(e){ return {rooms:{}, messages:[]}; } }
+function writeLocal(s){ localStorage.setItem(LOCAL_KEY, JSON.stringify(s)); }
+
+async function createRoom(){
+  const roomId = 'r' + Math.random().toString(36).slice(2,9) + Date.now().toString(36).slice(-4);
+  const keys = await generatePairKeys();
+  const room = { id: roomId, keyA: keys.publicKeyJwk, keyB: null, createdAt: Date.now(), expiresAt: Date.now() + 24*3600*1000, ttlSeconds: null, wipeOnClose: false };
+  if (db) await db.doc('rooms/'+roomId).set(room);
+  else { const s=readLocal(); s.rooms[roomId]=room; writeLocal(s); }
+  return { roomId, privateKeyJwk: keys.privateKeyJwk };
+}
+async function getRoom(roomId){
+  if (db){ const snap = await db.doc('rooms/'+roomId).get(); return snap.exists ? snap.data() : null; }
+  const s = readLocal(); return s.rooms[roomId] || null;
+}
+async function joinRoom(roomId){
+  const keys = await generatePairKeys();
+  if (db){
+    const ref = db.doc('rooms/'+roomId);
+    const acq = await ref.acquire({ holder:'join-'+Math.random().toString(36).slice(2), ttlMs:6000 });
+    if (!acq.acquired) return { error:'busy' };
+    const snap = await ref.get();
+    if (!snap.exists) return { error:'not_found' };
+    const data = snap.data();
+    if (data.keyB) return { error:'full' };
+    await ref.update({ keyB: keys.publicKeyJwk });
+    return { privateKeyJwk: keys.privateKeyJwk };
+  }
+  const s = readLocal();
+  const data = s.rooms[roomId];
+  if (!data) return { error:'not_found' };
+  if (data.keyB) return { error:'full' };
+  data.keyB = keys.publicKeyJwk;
+  writeLocal(s);
+  return { privateKeyJwk: keys.privateKeyJwk };
+}
+function subscribeRoom(roomId, cb){
+  if (db){
+    return db.doc('rooms/'+roomId).onSnapshot(snap => cb(snap.exists ? snap.data() : null), err => console.error('room subscribe error', err));
+  }
+  const poll = () => { const s = readLocal(); cb(s.rooms[roomId] || null); };
+  poll();
+  const id = setInterval(poll, 1200);
+  return () => clearInterval(id);
+}
+async function sendMessage(roomId, from, fields){
+  const id = 'm_' + Math.random().toString(36).slice(2) + Date.now().toString(36).slice(-4);
+  const msg = { id, roomId, from, createdAt: Date.now(), ...fields };
+  if (JSON.stringify(msg).length > 230000) throw new Error('too_large');
+  if (db){ await db.doc('messages/'+id).set(msg); return id; }
+  const s = readLocal();
+  s.messages.push(msg);
+  writeLocal(s);
+  return id;
+}
+function subscribeMessages(roomId, cb){
+  if (db){
+    return db.collection('messages').where('roomId','==',roomId).orderBy('createdAt','asc').limit(500)
+      .onSnapshot(snap => cb(snap.docs.map(d => ({ id:d.id, ...d.data() }))), err => console.error('messages subscribe error', err));
+  }
+  const poll = () => { const s = readLocal(); cb(s.messages.filter(m => m.roomId === roomId).sort((a,b)=>a.createdAt-b.createdAt)); };
+  poll();
+  const id = setInterval(poll, 1000);
+  return () => clearInterval(id);
+}
+async function deleteMessage(id){
+  if (db){ await db.doc('messages/'+id).delete(); return; }
+  const s = readLocal();
+  s.messages = s.messages.filter(m => m.id !== id);
+  writeLocal(s);
+}
+async function updateRoom(roomId, fields){
+  if (db){ await db.doc('rooms/'+roomId).update(fields); return; }
+  const s = readLocal();
+  if (s.rooms[roomId]) Object.assign(s.rooms[roomId], fields);
+  writeLocal(s);
+}
+async function wipeMessagesOnly(roomId){
+  if (db){
+    const snap = await db.collection('messages').where('roomId','==',roomId).limit(1000).get();
+    await Promise.all(snap.docs.map(d => db.doc('messages/'+d.id).delete()));
+    return;
+  }
+  const s = readLocal();
+  s.messages = s.messages.filter(m => m.roomId !== roomId);
+  writeLocal(s);
+}
+async function deleteConversation(roomId){
+  if (db){
+    const snap = await db.collection('messages').where('roomId','==',roomId).limit(1000).get();
+    await Promise.all(snap.docs.map(d => db.doc('messages/'+d.id).delete()));
+    await db.doc('rooms/'+roomId).delete();
+    return;
+  }
+  const s = readLocal();
+  s.messages = s.messages.filter(m => m.roomId !== roomId);
+  delete s.rooms[roomId];
+  writeLocal(s);
+}
+
+/* ============ local pairing list (per-device — never synced) ============ */
+const PAIRS_KEY = 'sealbox_pairs_v2';
+function loadPairs(){ try{ return JSON.parse(localStorage.getItem(PAIRS_KEY)) || []; } catch(e){ return []; } }
+function savePairs(list){ localStorage.setItem(PAIRS_KEY, JSON.stringify(list)); }
+function upsertPair(entry){
+  const list = loadPairs();
+  const i = list.findIndex(p => p.roomId === entry.roomId);
+  if (i >= 0) list[i] = { ...list[i], ...entry }; else list.push(entry);
+  savePairs(list);
+}
+function removePair(roomId){ savePairs(loadPairs().filter(p => p.roomId !== roomId)); }
+function getPair(roomId){ return loadPairs().find(p => p.roomId === roomId) || null; }
+
+/* ============ helpers ============ */
+function shareUrl(roomId, commitment){
+  const u = new URL(location.href); u.search = '?room=' + encodeURIComponent(roomId);
+  if (commitment) u.hash = 'k=' + commitment;
+  return u.toString();
+}
+// A hash of the creator's public key, carried in the URL fragment — fragments
+// never get sent to a server, so this travels only through whatever channel you
+// share the link over (text, email, in person), never through the relay itself.
+// The joiner recomputes the same hash from the key the relay actually handed
+// them and compares. If a relay swapped the key mid-pairing, this catches it
+// before any message is ever sent — the safety number only catches it after.
+async function sha256HexPrefix(jwk, len){
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(jwk.x+':'+jwk.y));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('').slice(0, len||16);
+}
+function timeAgo(ts){
+  const s = Math.floor((Date.now()-ts)/1000);
+  if (s < 60) return 'just now';
+  const m = Math.floor(s/60); if (m < 60) return m + (m===1?' min ago':' mins ago');
+  const h = Math.floor(m/60); if (h < 24) return h + (h===1?' hour ago':' hours ago');
+  const d = Math.floor(h/24); return d + (d===1?' day ago':' days ago');
+}
+function fmtDuration(sec){ sec = Math.round(sec||0); const m=Math.floor(sec/60), s=sec%60; return m+':'+String(s).padStart(2,'0'); }
+function showToast(text){
+  const t = document.getElementById('toast');
+  t.textContent = text; t.classList.add('show');
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(()=> t.classList.remove('show'), 2200);
+}
+function escapeHtml(s){ return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function cssEscape(s){ return String(s).replace(/[^a-zA-Z0-9_-]/g, c => '\\'+c); }
+function sealSvg(cls){
+  return `<svg class="${cls||'seal'}" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="32" cy="32" r="30" fill="var(--accent)"/>
+    <path d="M32 8 C21 8 13 17 13 27 C13 35 18 39 18 44 C18 49 22 53 27 53" stroke="var(--accent-ink)" stroke-width="2.2" fill="none" stroke-linecap="round" opacity="0.55"/>
+    <path d="M32 46 L24 30 H29 L32 37 L35 30 H40 L32 46 Z" fill="var(--accent-ink)"/>
+    <circle cx="32" cy="32" r="30" stroke="var(--accent-ink)" stroke-opacity="0.18" stroke-width="1"/>
+  </svg>`;
+}
+function anonBadge(){ return `<div class="anon-badge-wrap"><span class="anon-badge">&#128274; Anonymous &middot; forward-secret encryption</span></div>`; }
+function confirmSheet({title, body, confirmLabel, onConfirm}){
+  const backdrop = document.createElement('div');
+  backdrop.className = 'confirm-backdrop';
+  backdrop.innerHTML = `<div class="confirm-sheet"><h3>${title}</h3><p>${body}</p><div class="confirm-actions"><button class="danger-solid" id="confirmYes">${confirmLabel}</button><button class="secondary" id="confirmNo">Cancel</button></div></div>`;
+  document.body.appendChild(backdrop);
+  backdrop.addEventListener('click', e => { if (e.target === backdrop) backdrop.remove(); });
+  backdrop.querySelector('#confirmNo').addEventListener('click', () => backdrop.remove());
+  backdrop.querySelector('#confirmYes').addEventListener('click', () => { backdrop.remove(); onConfirm(); });
+}
+function openLightbox(url){
+  const box = document.createElement('div');
+  box.className = 'lightbox';
+  box.innerHTML = `<img src="${url}">`;
+  box.addEventListener('click', () => box.remove());
+  document.body.appendChild(box);
+}
+const CAPTIONS_KEY = 'sealbox_captions_enabled';
+function captionsEnabled(){ return localStorage.getItem(CAPTIONS_KEY) === '1'; }
+
+/* ============ static sponsor slot ============
+   No ad network, no tracking script, no third party involved at
+   render time — just a plain link you edit by hand. Leave `name`
+   empty to hide the slot entirely. Sold and swapped manually. */
+const SPONSOR = {
+  name: '',                 // e.g. 'Acme Password Manager'
+  tagline: '',               // e.g. 'Keep the rest of your logins just as sealed.'
+  url: '#',
+};
+function sponsorSlotHtml(){
+  if (!SPONSOR.name) return '';
+  return `
+    <a class="sponsor-card" href="${escapeHtml(SPONSOR.url)}" target="_blank" rel="noopener sponsored">
+      <span class="sponsor-label">Sponsor</span>
+      <span class="sponsor-name">${escapeHtml(SPONSOR.name)}</span>
+      ${SPONSOR.tagline ? `<span class="sponsor-tagline">${escapeHtml(SPONSOR.tagline)}</span>` : ''}
+    </a>`;
+}
+
+const TTL_OPTIONS = [ {label:'Off', value:null}, {label:'1 hour', value:3600}, {label:'1 day', value:86400}, {label:'1 week', value:604800} ];
+function openScanOverlay(expectedCode){
+  const overlay = document.createElement('div');
+  overlay.className = 'scan-overlay';
+  overlay.innerHTML = `<video muted playsinline></video><div class="scan-bar"><div class="scan-result" id="scanResult">Point the camera at their safety-number code…</div><button class="secondary" id="scanClose">Cancel</button></div>`;
+  document.body.appendChild(overlay);
+  const video = overlay.querySelector('video');
+  const resultEl = overlay.querySelector('#scanResult');
+  let scanner = null;
+  let settled = false;
+  const cleanup = () => { if (scanner){ try{ scanner.stop(); scanner.destroy(); } catch(e){} } overlay.remove(); };
+  overlay.querySelector('#scanClose').addEventListener('click', cleanup);
+  if (typeof QrScanner === 'undefined'){
+    resultEl.textContent = "Scanner didn't load — try the digit code instead.";
+    setTimeout(cleanup, 1800);
+    return;
+  }
+  scanner = new QrScanner(video, result => {
+    if (settled) return;
+    const scanned = (result.data || result).replace(/\s+/g,'');
+    const expected = expectedCode.replace(/\s+/g,'');
+    settled = true;
+    resultEl.textContent = scanned === expected ? '✅ Matches — verified' : '❌ Does not match';
+    showToast(scanned === expected ? 'Safety number verified' : "Codes don't match");
+    setTimeout(cleanup, 1400);
+  }, { returnDetailedScanResult:true });
+  scanner.start().catch(() => { resultEl.textContent = 'Camera access was denied.'; });
+}
+async function privacySettingsSheet(roomId, pair){
+  const room = await getRoom(roomId);
+  const pairedNow = !!(room && room.keyA && room.keyB);
+  let safetyHtml = `<p style="font-size:12.5px; color:var(--text-muted); margin:8px 0 0;">Available once you're paired.</p>`;
+  let safetyCode = null;
+  if (pairedNow){
+    safetyCode = await computeSafetyNumber(room.keyA, room.keyB);
+    safetyHtml = `<div class="mono safety-code">${escapeHtml(safetyCode)}</div>
+      <div style="display:flex; gap:8px; margin-top:4px;">
+        <button class="secondary" id="showQrBtn" style="flex:1;">Show as QR</button>
+        <button class="secondary" id="scanBtn" style="flex:1;">Scan theirs</button>
+      </div>
+      <div id="safetyQrBox" class="qr-box" style="display:none;"></div>`;
+  }
+  const currentPair = getPair(roomId) || pair;
+  const locked = !!currentPair.locked;
+  const ttl = room && room.ttlSeconds ? room.ttlSeconds : null;
+
+  const backdrop = document.createElement('div');
+  backdrop.className = 'confirm-backdrop';
+  backdrop.innerHTML = `
+    <div class="confirm-sheet" style="max-height:82vh; overflow-y:auto;">
+      <h3>Privacy &amp; encryption</h3>
+      <p>No name, email, or account exists anywhere in this app — just this device and the link you shared. Every message is encrypted before it leaves your device, and each one uses a key that's derived fresh and then discarded, so no single stolen key exposes more than that one message. Content is padded to a fixed size range before sealing, and even whether a message is text, a photo, or a voice note is sealed along with it — not just what's inside it.</p>
+
+      <div class="section-label" style="margin-top:16px;">Safety number</div>
+      <p style="font-size:12.5px; color:var(--text-muted); margin:0;">Read this code with them over a call or in person, or scan each other's. If it matches, no one intercepted your pairing link and swapped keys in the middle.</p>
+      ${safetyHtml}
+
+      <div class="section-label" style="margin-top:18px;">Start fresh</div>
+      <p style="font-size:12.5px; color:var(--text-muted); margin:0 0 10px;">${pairedNow
+        ? "Generates a brand new key for your side of this pairing and rebuilds your encryption from it. If you're ever worried a key on this device may have been exposed, this is how you recover — it doesn't rely on anything in-band that could get out of sync, just a clean replacement. Their app will notice the change and ask them to re-verify the safety number, exactly like it would for anything else that changed your keys — that's intentional, since there's no way to tell 'we did this on purpose' from 'someone else did this' without you both checking."
+        : "Available once you're paired."}</p>
+      ${pairedNow ? `<button class="secondary" id="freshKeysBtn">Generate a fresh key</button>` : ''}
+
+      <div class="section-label" style="margin-top:18px;">Disappearing messages</div>
+      <p style="font-size:12.5px; color:var(--text-muted); margin:0;">New messages auto-delete after this long, for both of you. Applies going forward, not to messages already sent.</p>
+      <div class="ttl-row" id="ttlRow">
+        ${TTL_OPTIONS.map(o => `<button class="ttl-opt ${o.value===ttl?'active':''}" data-ttl="${o.value}">${o.label}</button>`).join('')}
+      </div>
+
+      <div class="section-label" style="margin-top:18px;">Wipe on close</div>
+      <label style="display:flex; align-items:flex-start; gap:10px; font-size:13.5px; cursor:pointer;">
+        <input type="checkbox" id="wipeCloseToggle" ${room && room.wipeOnClose ? 'checked' : ''} style="width:18px;height:18px; margin-top:1px; flex-shrink:0;">
+        <span>Delete every message the moment either of you leaves this chat<br><span style="color:var(--text-muted); font-size:12px;">Turns this into a session-only conversation — closing it (or opening it fresh) starts empty. The pairing itself stays, just not what was said. Off by default.</span></span>
+      </label>
+
+      <div class="section-label" style="margin-top:18px;">Voice captions</div>
+      <label style="display:flex; align-items:flex-start; gap:10px; font-size:13.5px; cursor:pointer;">
+        <input type="checkbox" id="captionsToggle" ${captionsEnabled()?'checked':''} style="width:18px;height:18px; margin-top:1px; flex-shrink:0;">
+        <span>Add spoken captions to voice notes<br><span style="color:var(--text-muted); font-size:12px;">Uses your browser's built-in speech recognition, which may send raw audio to your browser vendor's cloud before it's encrypted. Off by default.</span></span>
+      </label>
+
+      <div class="section-label" style="margin-top:18px;">Passphrase lock</div>
+      <p style="font-size:12.5px; color:var(--text-muted); margin:0 0 10px;">${locked
+        ? "This pairing is locked. Your key only unlocks after you enter your passphrase — reading this browser's storage alone isn't enough."
+        : "Encrypt your key on this device with a passphrase you choose, so anyone who gets into this browser's storage still can't read your messages without it. You can also set a second, decoy passphrase that opens a harmless empty chat instead."}</p>
+      <button class="secondary" id="lockToggleBtn">${locked ? 'Remove passphrase lock' : 'Lock with a passphrase'}</button>
+
+      <div class="section-label" style="margin-top:18px;">Deniability</div>
+      <p style="font-size:12.5px; color:var(--text-muted); margin:0;">Messages here are authenticated with a symmetric key you and they both hold — not signed by either of your private identity keys. That's deliberate: it means neither of you can later prove to a third party which of you actually wrote a given message, even by handing over your keys and the plaintext. Either side could technically have forged it after the fact. Real conversations, without a permanent, provable record either of you could be held to.</p>
+
+      <p style="font-size:11.5px; color:var(--text-muted); margin-top:18px; line-height:1.55;">What this can't hide: whoever the storage for this pairing runs through can still see roughly when messages are sent and how large they are — just never what's in them. Sender identity is tagged with an opaque value instead of a role label, but it's the same value for one person's messages throughout the pairing, so a relay can still tell "these came from the same side," just not who that is. The key exchange itself is classical elliptic-curve, not post-quantum — traffic recorded today could theoretically be decrypted by a large enough future quantum computer, the way most encrypted traffic on the internet still can be. And nothing stops either of you from screenshotting, screen-recording, or repeating what's said — there's no browser API that lets a web page detect or block that, on any platform, so this covers the screen the moment the app is backgrounded (so an app-switcher preview can't show it) but that's the limit of what's honestly possible here. Press and hold the seal icon in the top bar any time for an instant, no-questions wipe of every pairing, or set an app passcode from the home screen for a wipe that also erases this device itself after too many wrong tries.</p>
+
+      <div class="confirm-actions" style="margin-top:16px;"><button class="secondary" id="settingsClose">Done</button></div>
+    </div>`;
+  document.body.appendChild(backdrop);
+  backdrop.addEventListener('click', e => { if (e.target === backdrop) backdrop.remove(); });
+  backdrop.querySelector('#settingsClose').addEventListener('click', () => backdrop.remove());
+  backdrop.querySelector('#captionsToggle').addEventListener('change', (e) => {
+    localStorage.setItem(CAPTIONS_KEY, e.target.checked ? '1' : '0');
+  });
+  backdrop.querySelector('#wipeCloseToggle').addEventListener('change', async (e) => {
+    try{ await updateRoom(roomId, { wipeOnClose: e.target.checked }); }
+    catch(err){ showToast('Could not update this setting'); }
+  });
+  const qrBtn = backdrop.querySelector('#showQrBtn');
+  if (qrBtn) qrBtn.addEventListener('click', () => {
+    const box = backdrop.querySelector('#safetyQrBox');
+    const showing = box.style.display !== 'none';
+    box.style.display = showing ? 'none' : 'flex';
+    if (!showing && !box.dataset.rendered && typeof QRCode !== 'undefined'){
+      new QRCode(box, { text: safetyCode.replace(/\s+/g,''), width:180, height:180 });
+      box.dataset.rendered = '1';
+    }
+  });
+  const scanBtn = backdrop.querySelector('#scanBtn');
+  if (scanBtn) scanBtn.addEventListener('click', () => openScanOverlay(safetyCode));
+  const freshBtn = backdrop.querySelector('#freshKeysBtn');
+  if (freshBtn) freshBtn.addEventListener('click', () => {
+    confirmSheet({
+      title: 'Generate a fresh key?',
+      body: "This replaces your side of the encryption key and starts new chains from it. The other side's app will flag the change and ask them to re-verify the safety number before trusting it — plan to do that together right after.",
+      confirmLabel: 'Generate fresh key',
+      onConfirm: async () => {
+        try{
+          await startFreshKeys(roomId, currentPair);
+          backdrop.remove();
+          showToast('Fresh key generated — reopening');
+          render();
+        } catch(e){ showToast('Could not generate a fresh key — try again'); }
+      }
+    });
+  });
+  backdrop.querySelectorAll('.ttl-opt').forEach(btn => btn.addEventListener('click', async () => {
+    const val = btn.dataset.ttl === 'null' ? null : parseInt(btn.dataset.ttl, 10);
+    backdrop.querySelectorAll('.ttl-opt').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    try{ await updateRoom(roomId, { ttlSeconds: val }); }
+    catch(e){ showToast('Could not update this setting'); }
+  }));
+  backdrop.querySelector('#lockToggleBtn').addEventListener('click', async () => {
+    if (locked){
+      const pass = prompt('Enter your real passphrase to remove the lock:');
+      if (!pass) return;
+      try{
+        const unlocked = await unlockPair(currentPair, pass);
+        if (unlocked.decoy){ showToast('Wrong passphrase'); return; }
+        upsertPair({ roomId, locked:false, privateKeyJwk: unlocked.privateKeyJwk, encPrivateKey:null, encPrivateKeyIv:null, saltB64:null, decoySaltB64:null, decoyCheck:null, decoyCheckIv:null });
+        showToast('Lock removed');
+        backdrop.remove();
+      } catch(e){ showToast('Wrong passphrase'); }
+    } else {
+      const pass = prompt("Set a passphrase for this pairing (you'll need it to reopen this chat on this device):");
+      if (!pass) return;
+      const confirmPass = prompt('Enter it again to confirm:');
+      if (pass !== confirmPass){ showToast("Passphrases didn't match"); return; }
+      const wantsDecoy = confirm('Also set a decoy passphrase? It opens an empty, harmless chat instead of your real one. Cancel to skip.');
+      let decoyPass = null;
+      if (wantsDecoy){
+        decoyPass = prompt('Set the decoy passphrase (must be different from your real one):');
+        if (decoyPass === pass) { showToast('Decoy must differ from your real passphrase — skipped'); decoyPass = null; }
+      }
+      await lockPairWithPassphrase(roomId, currentPair, pass, decoyPass || undefined);
+      showToast("Locked — you'll need your passphrase next time");
+      backdrop.remove();
+    }
+  });
+}
+
+/* ============ photo capture + compression ============ */
+function readFileAsDataURL(file){ return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=rej; r.readAsDataURL(file); }); }
+function loadImage(src){ return new Promise((res,rej)=>{ const im=new Image(); im.onload=()=>res(im); im.onerror=rej; im.src=src; }); }
+async function compressImage(file, maxDim, quality){
+  const img = await loadImage(await readFileAsDataURL(file));
+  let w = img.width, h = img.height;
+  if (w > h && w > maxDim){ h = Math.round(h * maxDim / w); w = maxDim; }
+  else if (h >= w && h > maxDim){ w = Math.round(w * maxDim / h); h = maxDim; }
+  const canvas = document.createElement('canvas');
+  canvas.width = w; canvas.height = h;
+  canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+  return new Promise(res => canvas.toBlob(res, 'image/jpeg', quality));
+}
+async function compressImageForSending(file){
+  for (const [maxDim, quality] of [[900,0.72],[640,0.6],[480,0.5],[360,0.4]]){
+    const blob = await compressImage(file, maxDim, quality);
+    if (blob.size < 165000) return blob;
+  }
+  throw new Error('too_large');
+}
+
+/* ============ voice recording + optional on-device transcription ============ */
+function createVoiceRecorder(){
+  let mediaRecorder, chunks, stream, startedAt, recognizer, transcript = '';
+  return {
+    async start(){
+      stream = await navigator.mediaDevices.getUserMedia({ audio:true });
+      chunks = [];
+      const mimeType = (window.MediaRecorder && MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) ? 'audio/webm;codecs=opus' : 'audio/webm';
+      mediaRecorder = new MediaRecorder(stream, { mimeType });
+      mediaRecorder.ondataavailable = e => { if (e.data && e.data.size > 0) chunks.push(e.data); };
+      startedAt = Date.now();
+      mediaRecorder.start();
+      transcript = '';
+      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (SR && captionsEnabled()){
+        try{
+          recognizer = new SR();
+          recognizer.continuous = true;
+          recognizer.interimResults = false;
+          recognizer.lang = (navigator.language || 'en-US');
+          recognizer.onresult = (e) => {
+            for (let i = e.resultIndex; i < e.results.length; i++){
+              if (e.results[i].isFinal) transcript += (transcript ? ' ' : '') + e.results[i][0].transcript.trim();
+            }
+          };
+          recognizer.onerror = () => {};
+          recognizer.start();
+        } catch(e){ recognizer = null; }
+      }
+    },
+    stop(){
+      return new Promise(resolve => {
+        mediaRecorder.onstop = () => {
+          stream.getTracks().forEach(t => t.stop());
+          if (recognizer){ try{ recognizer.stop(); } catch(e){} }
+          resolve({ blob: new Blob(chunks, { type: mediaRecorder.mimeType }), duration: (Date.now() - startedAt) / 1000, transcript: transcript.trim() || null, mimeType: mediaRecorder.mimeType });
+        };
+        mediaRecorder.stop();
+      });
+    },
+    cancel(){
+      try{ mediaRecorder.onstop = null; mediaRecorder.stop(); } catch(e){}
+      try{ stream.getTracks().forEach(t => t.stop()); } catch(e){}
+      if (recognizer){ try{ recognizer.stop(); } catch(e){} }
+    }
+  };
+}
+const MAX_RECORD_SECONDS = 25;
+
+/* ============ router ============ */
+const app = document.getElementById('app');
+let activeUnsubs = [];
+function clearSubs(){ activeUnsubs.forEach(fn => fn && fn()); activeUnsubs = []; }
+function currentRoomParam(){ return new URLSearchParams(location.search).get('room'); }
+function navigateHome(){ history.pushState({}, '', location.pathname); render(); }
+function navigateToRoom(roomId){ const u = new URL(location.href); u.search = '?room=' + encodeURIComponent(roomId); history.pushState({}, '', u.toString()); render(); }
+window.addEventListener('popstate', render);
+
+async function render(){
+  clearSubs();
+  const roomId = currentRoomParam();
+  if (roomId){
+    const existingPair = getPair(roomId);
+    if (existingPair && existingPair.locked){ renderUnlock(roomId, existingPair); return; }
+    if (existingPair){ renderChat(roomId, existingPair); return; }
+    renderJoin(roomId);
+    return;
+  }
+  renderHome();
+}
+
+/* ---------- home ---------- */
+/* ---------- app lock: setup + entry screens ---------- */
+function renderAppLockSetup(onDone){
+  app.innerHTML = `
+    <div class="hero">
+      ${sealSvg('seal seal-hero')}
+      <h2>Set an app passcode</h2>
+      <p>Required to open Sealbox on this device from now on. Get it wrong too many times in a row and this device wipes every pairing, every message, and the passcode itself — permanently, with nothing left to recover, not even by you. Choose something you genuinely won't forget.</p>
+    </div>
+    <input type="password" id="lockPass1" class="text-input" placeholder="Choose a passcode" style="margin-bottom:10px;">
+    <input type="password" id="lockPass2" class="text-input" placeholder="Enter it again" style="margin-bottom:14px;">
+    <div class="section-label">Wrong attempts before this device wipes itself</div>
+    <div class="ttl-row" id="thresholdRow">
+      <button class="ttl-opt active" data-t="3">3 tries</button>
+      <button class="ttl-opt" data-t="1">1 try</button>
+    </div>
+    <button class="primary" id="setLockBtn" style="margin-top:16px;">Set passcode</button>
+    <button class="link-btn" id="skipLockBtn" style="display:block; margin:14px auto 0;">Cancel</button>
+  `;
+  let threshold = 3;
+  document.querySelectorAll('#thresholdRow .ttl-opt').forEach(btn => btn.addEventListener('click', () => {
+    document.querySelectorAll('#thresholdRow .ttl-opt').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    threshold = parseInt(btn.dataset.t, 10);
+  }));
+  document.getElementById('skipLockBtn').addEventListener('click', onDone);
+  document.getElementById('setLockBtn').addEventListener('click', async () => {
+    const p1 = document.getElementById('lockPass1').value;
+    const p2 = document.getElementById('lockPass2').value;
+    if (!p1 || p1.length < 4){ showToast('Use at least 4 characters'); return; }
+    if (p1 !== p2){ showToast("Passcodes didn't match"); return; }
+    const salt = crypto.getRandomValues(new Uint8Array(16));
+    const hash = await pbkdf2VerifierHash(p1, salt);
+    saveAppLock({ saltB64: bufToB64(salt), hash, threshold });
+    setLockAttempts(0);
+    showToast('App passcode set');
+    onDone();
+  });
+}
+function renderAppLockEntry(lock){
+  const remaining = Math.max(0, lock.threshold - getLockAttempts());
+  app.innerHTML = `
+    <div class="hero">
+      ${sealSvg('seal seal-hero')}
+      <h2>Enter passcode</h2>
+      <p>${remaining <= 1
+        ? `<span style="color:var(--danger);">${remaining} attempt${remaining===1?'':'s'} left — after that, this device wipes itself, permanently.</span>`
+        : `${remaining} attempts left before this device wipes itself.`}</p>
+    </div>
+    <input type="password" id="unlockInput" class="text-input" placeholder="Passcode">
+    <button class="primary" id="unlockAppBtn" style="margin-top:16px;">Unlock</button>
+  `;
+  const doUnlock = async () => {
+    const val = document.getElementById('unlockInput').value;
+    if (!val) return;
+    const btn = document.getElementById('unlockAppBtn');
+    btn.disabled = true; btn.textContent = 'Checking…';
+    const salt = new Uint8Array(b64ToBuf(lock.saltB64));
+    const hash = await pbkdf2VerifierHash(val, salt);
+    if (hash === lock.hash){
+      setLockAttempts(0);
+      render();
+    } else {
+      const attempts = getLockAttempts() + 1;
+      setLockAttempts(attempts);
+      if (attempts >= lock.threshold){ await selfDestructDevice(); return; }
+      showToast('Wrong passcode');
+      renderAppLockEntry(lock);
+    }
+  };
+  document.getElementById('unlockAppBtn').addEventListener('click', doUnlock);
+  document.getElementById('unlockInput').addEventListener('keydown', e => { if (e.key === 'Enter') doUnlock(); });
+}
+function appLockCardHtml(){
+  const lock = loadAppLock();
+  return lock
+    ? `<button class="secondary" id="manageLockBtn" style="margin-top:12px;">&#128274; App passcode is on &middot; manage</button>`
+    : `<button class="secondary" id="setupLockBtn" style="margin-top:12px;">Set an app passcode</button>`;
+}
+function wireAppLockCard(){
+  const setupBtn = document.getElementById('setupLockBtn');
+  if (setupBtn) setupBtn.addEventListener('click', () => renderAppLockSetup(() => render()));
+  const manageBtn = document.getElementById('manageLockBtn');
+  if (manageBtn) manageBtn.addEventListener('click', async () => {
+    const lock = loadAppLock();
+    const current = prompt('Enter your current app passcode:');
+    if (current === null) return;
+    const salt = new Uint8Array(b64ToBuf(lock.saltB64));
+    const hash = await pbkdf2VerifierHash(current, salt);
+    if (hash !== lock.hash){ showToast('Wrong passcode'); return; }
+    if (confirm('OK to remove the app passcode. Cancel to change it instead.')){
+      localStorage.removeItem(APP_LOCK_KEY);
+      localStorage.removeItem(APP_LOCK_ATTEMPTS_KEY);
+      showToast('App passcode removed');
+      render();
+    } else {
+      renderAppLockSetup(() => render());
+    }
+  });
+}
+async function renderHome(){
+  const pairs = loadPairs().sort((a,b)=>b.createdAt-a.createdAt);
+  if (!pairs.length){
+    app.innerHTML = `
+      <div class="hero">
+        ${sealSvg('seal seal-hero seal-drop')}
+        <h1>Talk to them.<br>Not as yourself.</h1>
+        ${anonBadge()}
+        <p>Start a pairing and send the link to exactly one person. Neither of you ever gives a name, an email, or a phone number &mdash; just the link. Every message uses its own one-time key, and deleting the conversation erases it completely, for both of you.</p>
+      </div>
+      <button class="primary" id="startBtn">Start a pairing</button>
+      <p class="quiet-note">${usingSharedStore ? 'No names, no accounts, nothing here that ties this link back to you.' : 'Running in local demo mode — open this page in two tabs to try pairing. No names, no accounts.'}</p>
+      ${appLockCardHtml()}
+      ${sponsorSlotHtml()}
+    `;
+    document.getElementById('startBtn').addEventListener('click', onStartPairing);
+    wireAppLockCard();
+    return;
+  }
+
+  app.innerHTML = `
+    <div class="topbar"><div class="brand" id="homeBrand">${sealSvg('seal')} <span class="brand-name">Sealbox</span></div></div>
+    <div class="section-label">Your pairings</div>
+    <div id="pairList"><div class="skeleton" style="margin-bottom:10px;"></div><div class="skeleton" style="width:70%;"></div></div>
+    <button class="new-pair-fab" id="startBtn">Start a new pairing</button>
+    <p class="quiet-note">Press and hold the seal above to instantly wipe every pairing from this device.</p>
+    ${appLockCardHtml()}
+    ${sponsorSlotHtml()}
+  `;
+  document.getElementById('startBtn').addEventListener('click', onStartPairing);
+  wireAppLockCard();
+  attachPanicHold(document.getElementById('homeBrand'), () => {
+    loadPairs().forEach(p => { clearRatchetState(p.roomId); deleteConversation(p.roomId).catch(()=>{}); });
+    savePairs([]);
+    showToast('Cleared');
+    render();
+  });
+
+  const listEl = document.getElementById('pairList');
+  const rooms = await Promise.all(pairs.map(p => getRoom(p.roomId)));
+  let html = '';
+  pairs.forEach((p, i) => {
+    const room = rooms[i];
+    if (!room){ removePair(p.roomId); clearRatchetState(p.roomId); return; }
+    const paired = !!(room.keyA && room.keyB);
+    html += `
+      <div class="pair-card" data-room="${escapeHtml(p.roomId)}">
+        <div class="meta">
+          <div class="label">${escapeHtml(p.label || 'Sealed pairing')}${p.locked ? ' &#128274;' : ''}</div>
+          <div class="status"><span class="dot ${paired?'paired':'waiting'}"></span>${paired ? 'Paired' : 'Waiting for them to join'} &middot; started ${timeAgo(p.createdAt)}</div>
+        </div>
+      </div>`;
+  });
+  listEl.innerHTML = html || `<div class="empty">${sealSvg('seal')}<p>All your pairings were deleted or expired.</p></div>`;
+  listEl.querySelectorAll('.pair-card').forEach(el => el.addEventListener('click', () => navigateToRoom(el.getAttribute('data-room'))));
+}
+async function onStartPairing(){
+  const btn = document.getElementById('startBtn');
+  btn.disabled = true; const original = btn.textContent; btn.textContent = 'Creating…';
+  try{
+    const { roomId, privateKeyJwk } = await createRoom();
+    upsertPair({ roomId, role:'A', privateKeyJwk, createdAt: Date.now(), label:'' });
+    navigateToRoom(roomId);
+  } catch(e){
+    console.error(e);
+    btn.disabled = false; btn.textContent = original;
+    showToast('Could not start a pairing — try again');
+  }
+}
+
+/* ---------- join screen ---------- */
+async function renderJoin(roomId){
+  app.innerHTML = `<div class="topbar"><div class="brand">${sealSvg('seal')} <span class="brand-name">Sealbox</span></div></div><div id="joinArea"><div class="skeleton" style="width:60%; margin:0 auto 14px;"></div><div class="skeleton" style="width:80%; margin:0 auto;"></div></div>`;
+  const area = document.getElementById('joinArea');
+  const room = await getRoom(roomId);
+  if (!room){
+    area.innerHTML = `<div class="hero">${sealSvg('seal seal-hero')}<h2>This link isn't valid</h2><p>The pairing was deleted, or the link is broken.</p><button class="secondary" id="homeBtn">Start your own pairing</button></div>`;
+    document.getElementById('homeBtn').addEventListener('click', navigateHome);
+    return;
+  }
+  if (room.expiresAt && Date.now() > room.expiresAt && !room.keyB){
+    deleteConversation(roomId).catch(()=>{});
+    area.innerHTML = `<div class="hero">${sealSvg('seal seal-hero')}<h2>This link expired</h2><p>Unopened pairing links only last 24 hours. Ask for a fresh one, or start your own.</p><button class="secondary" id="homeBtn">Start your own pairing</button></div>`;
+    document.getElementById('homeBtn').addEventListener('click', navigateHome);
+    return;
+  }
+  if (room.keyB){
+    area.innerHTML = `<div class="hero">${sealSvg('seal seal-hero')}<h2>Already paired</h2><p>This link has already been used to pair with someone. Ask for a fresh link, or start your own.</p><button class="secondary" id="homeBtn">Start your own pairing</button></div>`;
+    document.getElementById('homeBtn').addEventListener('click', navigateHome);
+    return;
+  }
+  const hashParams = new URLSearchParams(location.hash.replace(/^#/, ''));
+  const claimedCommitment = hashParams.get('k');
+  if (claimedCommitment){
+    const actual = await sha256HexPrefix(room.keyA, claimedCommitment.length);
+    if (actual !== claimedCommitment){
+      area.innerHTML = `<div class="hero">${sealSvg('seal seal-hero')}<h2 style="color:var(--danger);">This link doesn't check out</h2><p>The key this link points to doesn't match the one it was created with. That can mean the link got corrupted — or that something between you and whoever sent it swapped the key. Don't pair over this link; ask for a fresh one sent a different way.</p><button class="secondary" id="homeBtn">Start your own pairing instead</button></div>`;
+      document.getElementById('homeBtn').addEventListener('click', navigateHome);
+      return;
+    }
+  }
+  area.innerHTML = `
+    <div class="hero">
+      ${sealSvg('seal seal-hero')}
+      <h1>You've been invited<br>to a sealed line.</h1>
+      ${anonBadge()}
+      <p>Join and you'll message each other anonymously — text, photos, voice notes — with a key that's derived fresh for every message. Nothing about who you are gets shared, stored, or sent along with it.</p>
+      ${claimedCommitment ? `<p class="quiet-note" style="color:var(--ok);">&#10003; Link key verified — this wasn't swapped in transit.</p>` : ''}
+    </div>
+    <button class="primary" id="joinBtn">Join this pairing</button>
+    <p class="quiet-note">No name, no account, no trace of who joined &mdash; just your side of the key.</p>
+  `;
+  document.getElementById('joinBtn').addEventListener('click', async () => {
+    const btn = document.getElementById('joinBtn');
+    btn.disabled = true; btn.textContent = 'Joining…';
+    const result = await joinRoom(roomId);
+    if (result.error){
+      btn.disabled = false; btn.textContent = 'Join this pairing';
+      showToast(result.error === 'full' ? 'Someone just joined first' : 'Could not join — try again');
+      return;
+    }
+    upsertPair({ roomId, role:'B', privateKeyJwk: result.privateKeyJwk, createdAt: Date.now(), label:'' });
+    render();
+  });
+}
+
+/* ---------- unlock screen (passphrase-locked pairing) ---------- */
+function renderUnlock(roomId, pairEntry){
+  app.innerHTML = `
+    <div class="topbar"><div class="brand">${sealSvg('seal')} <span class="brand-name">${escapeHtml(pairEntry.label || 'Sealed pairing')}</span></div></div>
+    <div class="hero">${sealSvg('seal seal-hero')}<h2>Locked</h2><p>Enter the passphrase you set for this pairing.</p></div>
+    <input type="password" id="passInput" class="text-input" placeholder="Passphrase">
+    <button class="primary" id="unlockBtn" style="margin-top:14px;">Unlock</button>
+    <button class="link-btn" id="homeLinkBtn" style="display:block; margin:16px auto 0;">Back</button>
+  `;
+  document.getElementById('homeLinkBtn').addEventListener('click', navigateHome);
+  const doUnlock = async () => {
+    const pass = document.getElementById('passInput').value;
+    if (!pass) return;
+    const btn = document.getElementById('unlockBtn');
+    btn.disabled = true; btn.textContent = 'Unlocking…';
+    try{
+      const unlocked = await unlockPair(pairEntry, pass);
+      if (unlocked.decoy) renderDecoyChat(roomId, pairEntry);
+      else renderChat(roomId, unlocked);
+    } catch(e){
+      btn.disabled = false; btn.textContent = 'Unlock';
+      showToast('Wrong passphrase');
+    }
+  };
+  document.getElementById('unlockBtn').addEventListener('click', doUnlock);
+  document.getElementById('passInput').addEventListener('keydown', e => { if (e.key === 'Enter') doUnlock(); });
+}
+
+/* ---------- decoy chat: local-only, never touches the real room/keys/messages ---------- */
+function decoyStorageKey(roomId){ return 'sealbox_decoy_'+roomId; }
+function loadDecoyLog(roomId){ try{ return JSON.parse(localStorage.getItem(decoyStorageKey(roomId))) || []; } catch(e){ return []; } }
+function saveDecoyLog(roomId, log){ localStorage.setItem(decoyStorageKey(roomId), JSON.stringify(log)); }
+function renderDecoyChat(roomId, pairEntry){
+  const log = loadDecoyLog(roomId);
+  app.innerHTML = `
+    <div class="topbar">
+      <div class="brand" id="decoyBrand">${sealSvg('seal')} <span class="brand-name">${escapeHtml(pairEntry.label || 'Sealed pairing')}</span></div>
+      <button class="icon-btn" id="decoyDeleteBtn" title="Delete conversation">&#128465;</button>
+    </div>
+    <div class="status-row"><span class="dot paired"></span>Paired &middot; anonymous &middot; forward-secret encryption</div>
+    <div class="thread" id="decoyThread"></div>
+    <div class="composer">
+      <textarea id="decoyInput" rows="1" maxlength="2000" placeholder="Say something…"></textarea>
+      <button class="send-btn" id="decoySendBtn" disabled>&#10148;</button>
+    </div>
+  `;
+  attachPanicHold(document.getElementById('decoyBrand'), () => {
+    saveDecoyLog(roomId, []);
+    showToast('Cleared');
+    navigateHome();
+  });
+  const threadEl = document.getElementById('decoyThread');
+  function renderLog(){
+    const l = loadDecoyLog(roomId);
+    threadEl.innerHTML = l.length ? l.map(m => `<div class="bubble-row ${m.from==='me'?'me':'them'}"><div><div class="bubble">${escapeHtml(m.text)}</div><div class="bubble-time">${timeAgo(m.ts)}</div></div></div>`).join('')
+      : `<div class="empty">${sealSvg('seal')}<p>No messages yet.</p></div>`;
+    threadEl.scrollTop = threadEl.scrollHeight;
+  }
+  renderLog();
+  const input = document.getElementById('decoyInput');
+  const sendBtn = document.getElementById('decoySendBtn');
+  input.addEventListener('input', () => { sendBtn.disabled = input.value.trim().length===0; });
+  sendBtn.addEventListener('click', () => {
+    const text = input.value.trim();
+    if (!text) return;
+    const l = loadDecoyLog(roomId);
+    l.push({ from:'me', text, ts: Date.now() });
+    saveDecoyLog(roomId, l);
+    input.value=''; sendBtn.disabled = true;
+    renderLog();
+  });
+  document.getElementById('decoyDeleteBtn').addEventListener('click', () => {
+    confirmSheet({
+      title:'Delete this conversation?',
+      body:'This permanently erases these messages for both of you, right now.',
+      confirmLabel:'Delete permanently',
+      onConfirm: () => { saveDecoyLog(roomId, []); showToast('Conversation deleted'); navigateHome(); }
+    });
+  });
+}
+function attachPanicHold(el, onTrigger){
+  if (!el) return;
+  let timer = null;
+  const start = () => { timer = setTimeout(() => { timer = null; onTrigger(); }, 650); };
+  const cancel = () => { if (timer){ clearTimeout(timer); timer = null; } };
+  el.addEventListener('pointerdown', start);
+  el.addEventListener('pointerup', cancel);
+  el.addEventListener('pointerleave', cancel);
+  el.addEventListener('pointercancel', cancel);
+}
+
+/* ---------- chat ---------- */
+async function renderChat(roomId, pair){
+  app.innerHTML = `
+    <div class="topbar">
+      <div class="brand" id="chatBrand">${sealSvg('seal')} <span class="brand-name">${escapeHtml(pair.label || 'Sealed pairing')}</span></div>
+      <div style="display:flex; gap:8px;">
+        <button class="icon-btn" id="closeBtn" title="Close">&#8592;</button>
+        <button class="icon-btn" id="privacyBtn" title="Privacy">&#128274;</button>
+        <button class="icon-btn" id="renameBtn" title="Rename">&#9998;</button>
+        <button class="icon-btn" id="deleteBtn" title="Delete conversation">&#128465;</button>
+      </div>
+    </div>
+    <div id="chatBody"><div class="skeleton" style="margin-bottom:10px;"></div><div class="skeleton" style="width:60%;"></div></div>
+  `;
+  attachPanicHold(document.getElementById('chatBrand'), async () => {
+    clearRatchetState(roomId);
+    removePair(roomId);
+    deleteConversation(roomId).catch(()=>{});
+    showToast('Cleared');
+    navigateHome();
+  });
+  document.getElementById('closeBtn').addEventListener('click', navigateHome);
+  document.getElementById('privacyBtn').addEventListener('click', () => privacySettingsSheet(roomId, pair));
+  document.getElementById('renameBtn').addEventListener('click', () => {
+    const name = prompt('Label this pairing (only visible to you):', pair.label || '');
+    if (name !== null){ upsertPair({ roomId, label: name.trim().slice(0,40) }); render(); }
+  });
+  document.getElementById('deleteBtn').addEventListener('click', () => {
+    confirmSheet({
+      title: 'Delete this conversation?',
+      body: 'This permanently erases every message — text, photos, voice notes — for both of you, right now. Neither of you will be able to get them back.',
+      confirmLabel: 'Delete permanently',
+      onConfirm: async () => {
+        try{
+          await deleteConversation(roomId);
+          clearRatchetState(roomId);
+          removePair(roomId);
+          showToast('Conversation deleted');
+          navigateHome();
+        } catch(e){ console.error(e); showToast('Could not delete — try again'); }
+      }
+    });
+  });
+
+  const body = document.getElementById('chatBody');
+  let ratchetState = null;
+  let wipeOnClose = false;
+  const wipeIfEnabled = () => { if (wipeOnClose){ wipeMessagesOnly(roomId).catch(()=>{}); clearRatchetCache(roomId); } };
+  const pageHideHandler = () => wipeIfEnabled();
+  window.addEventListener('pagehide', pageHideHandler);
+  activeUnsubs.push(() => { window.removeEventListener('pagehide', pageHideHandler); wipeIfEnabled(); });
+
+  const roomUnsub = subscribeRoom(roomId, async (room) => {
+    if (!room){
+      clearSubs();
+      body.innerHTML = `<div class="empty">${sealSvg('seal')}<p>This conversation was deleted.</p></div>`;
+      clearRatchetState(roomId);
+      removePair(roomId);
+      setTimeout(() => { if (currentRoomParam() === roomId) navigateHome(); }, 1400);
+      return;
+    }
+    wipeOnClose = !!room.wipeOnClose;
+    const paired = !!(room.keyA && room.keyB);
+    if (!paired){
+      const hoursLeft = room.expiresAt ? Math.max(0, Math.round((room.expiresAt - Date.now())/3600000)) : null;
+      const commitment = await sha256HexPrefix(room.keyA);
+      body.innerHTML = `
+        <div class="waiting-state">${sealSvg('seal seal-hero seal-pulse')}<h2>Waiting for them</h2>${anonBadge()}<p>Send this link to the one person you want on the other end. No name needed on either side — your chat unlocks the moment they open it.</p></div>
+        <div class="card share-card"><div class="label">Your sealed link</div><div class="share-row"><span class="url mono">${escapeHtml(shareUrl(roomId, commitment))}</span><button class="copy-btn" id="copyBtn">Copy</button></div>
+          <button class="secondary" id="showLinkQrBtn" style="margin-top:10px;">Show as QR</button>
+          <div id="linkQrBox" class="qr-box" style="display:none;"></div>
+        </div>
+        ${hoursLeft !== null ? `<p class="expiry-note">This link expires in about ${hoursLeft} hour${hoursLeft===1?'':'s'} if unopened.</p>` : ''}
+      `;
+      const copyBtn = document.getElementById('copyBtn');
+      if (copyBtn) copyBtn.addEventListener('click', async () => {
+        try{ await navigator.clipboard.writeText(shareUrl(roomId, commitment)); showToast('Link copied'); }
+        catch(e){ showToast('Copy failed — long-press to select'); }
+      });
+      const linkQrBtn = document.getElementById('showLinkQrBtn');
+      if (linkQrBtn) linkQrBtn.addEventListener('click', () => {
+        const box = document.getElementById('linkQrBox');
+        const showing = box.style.display !== 'none';
+        box.style.display = showing ? 'none' : 'flex';
+        if (!showing && !box.dataset.rendered && typeof QRCode !== 'undefined'){
+          new QRCode(box, { text: shareUrl(roomId, commitment), width:180, height:180 });
+          box.dataset.rendered = '1';
+        }
+      });
+      return;
+    }
+
+    if (!ratchetState){
+      ratchetState = await getOrInitRatchet(roomId, pair, room);
+      body.innerHTML = `
+        <div class="status-row"><span class="dot paired"></span>Paired &middot; anonymous &middot; forward-secret encryption</div>
+        <div class="thread" id="thread"></div>
+        <div class="composer" id="composerRow">
+          <button class="round-btn" id="burnBtn" title="Burn after reading">&#128293;</button>
+          <button class="round-btn" id="attachBtn" title="Send a photo">&#128247;</button>
+          <button class="round-btn" id="micBtn" title="Send a voice note">&#127908;</button>
+          <textarea id="msgInput" rows="1" maxlength="2000" placeholder="Say something…"></textarea>
+          <button class="send-btn" id="sendBtn" disabled>&#10148;</button>
+        </div>
+        <input type="file" id="photoInput" accept="image/*">
+      `;
+      const input = document.getElementById('msgInput');
+      const sendBtn = document.getElementById('sendBtn');
+      const composerRow = document.getElementById('composerRow');
+      const attachBtn = document.getElementById('attachBtn');
+      const micBtn = document.getElementById('micBtn');
+      const photoInput = document.getElementById('photoInput');
+      const burnBtn = document.getElementById('burnBtn');
+      let burnArmed = false;
+      burnBtn.addEventListener('click', () => {
+        burnArmed = !burnArmed;
+        burnBtn.classList.toggle('burn-armed', burnArmed);
+        burnBtn.title = burnArmed ? 'Next message burns after they read it' : 'Burn after reading';
+      });
+      function takeBurnFlag(){ const b = burnArmed; burnArmed = false; burnBtn.classList.remove('burn-armed'); return b; }
+
+      function showUploading(label){
+        hideUploading();
+        const row = document.createElement('div');
+        row.className = 'uploading-row'; row.id = 'uploadingRow';
+        row.innerHTML = `<div class="skeleton" style="width:16px; height:16px; border-radius:50%;"></div>${label}`;
+        composerRow.parentElement.insertBefore(row, composerRow.nextSibling);
+      }
+      function hideUploading(){ const r = document.getElementById('uploadingRow'); if (r) r.remove(); }
+
+      input.addEventListener('input', () => {
+        sendBtn.disabled = input.value.trim().length === 0;
+        input.style.height = 'auto';
+        input.style.height = Math.min(input.scrollHeight, 110) + 'px';
+      });
+      input.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); if (!sendBtn.disabled) sendBtn.click(); } });
+      sendBtn.addEventListener('click', async () => {
+        const text = input.value.trim();
+        if (!text) return;
+        const burn = takeBurnFlag();
+        input.value = ''; input.style.height='auto'; sendBtn.disabled = true;
+        try{
+          const { aesKey, seq } = await takeSendStep(roomId, ratchetState);
+          const envelope = encodeEnvelope({ type:'text' }, new TextEncoder().encode(text));
+          const enc = await encryptBytes(aesKey, padPlaintext(envelope));
+          const fields = { seq, ciphertext: enc.ciphertext, iv: enc.iv };
+          if (burn) fields.burn = true;
+          const now = Date.now();
+          const room2 = await getRoom(roomId);
+          if (room2 && room2.ttlSeconds) fields.expiresAt = now + room2.ttlSeconds*1000;
+          const id = await sendMessage(roomId, ratchetState.myTag, fields);
+          ratchetState.cache[id] = { type:'text', text };
+          saveRatchetState(roomId, ratchetState);
+        } catch(e){
+          console.error(e);
+          showToast(e.message === 'too_large' ? 'Message too long' : 'Message failed to send');
+        }
+      });
+
+      attachBtn.addEventListener('click', () => photoInput.click());
+      photoInput.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        photoInput.value = '';
+        if (!file) return;
+        if (!file.type.startsWith('image/')){ showToast("That file isn't a photo"); return; }
+        const burn = takeBurnFlag();
+        showUploading('Sealing photo…');
+        try{
+          const blob = await compressImageForSending(file);
+          const buf = await blob.arrayBuffer();
+          const { aesKey, seq } = await takeSendStep(roomId, ratchetState);
+          const envelope = encodeEnvelope({ type:'image', mime:'image/jpeg' }, new Uint8Array(buf));
+          const enc = await encryptBytes(aesKey, padPlaintext(envelope));
+          const fields = { seq, ciphertext: enc.ciphertext, iv: enc.iv };
+          if (burn) fields.burn = true;
+          const room2 = await getRoom(roomId);
+          if (room2 && room2.ttlSeconds) fields.expiresAt = Date.now() + room2.ttlSeconds*1000;
+          const id = await sendMessage(roomId, ratchetState.myTag, fields);
+          ratchetState.cache[id] = { type:'image', mime:'image/jpeg', dataB64: bufToB64(buf) };
+          saveRatchetState(roomId, ratchetState);
+        } catch(err){
+          console.error(err);
+          showToast(err.message === 'too_large' ? "That photo is too large to seal — try another" : 'Could not send that photo');
+        } finally{ hideUploading(); }
+      });
+
+      micBtn.addEventListener('click', async () => {
+        if (!navigator.mediaDevices || !window.MediaRecorder){ showToast("Voice notes aren't supported on this browser"); return; }
+        let recorder;
+        try{ recorder = createVoiceRecorder(); await recorder.start(); }
+        catch(e){ showToast('Microphone access was denied'); return; }
+
+        composerRow.style.display = 'none';
+        const recRow = document.createElement('div');
+        recRow.className = 'recording-row';
+        recRow.innerHTML = `<span class="rec-dot"></span><span class="rec-time" id="recTime">0:00</span><button class="rec-cancel" id="recCancel">Cancel</button><button class="rec-stop" id="recStop">Send</button>`;
+        composerRow.parentElement.insertBefore(recRow, composerRow);
+        const startedAt = Date.now();
+        const timeEl = document.getElementById('recTime');
+        const timerId = setInterval(() => {
+          const elapsed = (Date.now() - startedAt) / 1000;
+          timeEl.textContent = fmtDuration(elapsed);
+          if (elapsed >= MAX_RECORD_SECONDS) document.getElementById('recStop').click();
+        }, 200);
+
+        document.getElementById('recCancel').addEventListener('click', () => {
+          clearInterval(timerId);
+          recorder.cancel();
+          recRow.remove();
+          composerRow.style.display = '';
+        });
+        document.getElementById('recStop').addEventListener('click', async () => {
+          clearInterval(timerId);
+          recRow.remove();
+          composerRow.style.display = '';
+          showUploading('Sealing voice note…');
+          const burn = takeBurnFlag();
+          try{
+            const { blob, duration, transcript } = await recorder.stop();
+            if (duration < 0.6){ showToast('Recording was too short'); return; }
+            const buf = await blob.arrayBuffer();
+            const { aesKey, seq } = await takeSendStep(roomId, ratchetState);
+            const mime = blob.type || 'audio/webm';
+            const envelope = encodeEnvelope({ type:'audio', mime, duration, transcript: transcript || null }, new Uint8Array(buf));
+            const enc = await encryptBytes(aesKey, padPlaintext(envelope));
+            const fields = { seq, ciphertext:enc.ciphertext, iv:enc.iv };
+            if (burn) fields.burn = true;
+            const room2 = await getRoom(roomId);
+            if (room2 && room2.ttlSeconds) fields.expiresAt = Date.now() + room2.ttlSeconds*1000;
+            const id = await sendMessage(roomId, ratchetState.myTag, fields);
+            ratchetState.cache[id] = { type:'audio', mime, duration, dataB64: bufToB64(buf), transcript };
+            saveRatchetState(roomId, ratchetState);
+          } catch(err){
+            console.error(err);
+            showToast(err.message === 'too_large' ? 'That voice note is too long to seal' : 'Could not send that voice note');
+          } finally{ hideUploading(); }
+        });
+      });
+
+      const threadEl = document.getElementById('thread');
+      const msgsUnsub = subscribeMessages(roomId, async (messages) => {
+        const now = Date.now();
+        const expired = messages.filter(m => m.expiresAt && m.expiresAt < now);
+        if (expired.length) expired.forEach(m => deleteMessage(m.id).catch(()=>{}));
+        const live = messages.filter(m => !(m.expiresAt && m.expiresAt < now));
+        const atBottom = threadEl.scrollTop + threadEl.clientHeight >= threadEl.scrollHeight - 30;
+        if (!live.length){
+          threadEl.innerHTML = `<div class="empty">${sealSvg('seal')}<p>No messages yet. Whatever you send here — text, photos, voice — only the two of you will ever be able to unseal.</p></div>`;
+          return;
+        }
+        await processIncomingForCache(roomId, pair, ratchetState, live);
+        threadEl.innerHTML = live.map(m => `
+          <div class="bubble-row ${m.from === ratchetState.myTag ? 'me' : 'them'}" data-id="${escapeHtml(m.id||'')}">
+            <div><div class="bubble"></div><div class="bubble-time">${timeAgo(m.createdAt)}${m.burn ? ' &middot; burns after reading' : ''}</div></div>
+          </div>`).join('');
+        for (const m of live){
+          const bubbleEl = threadEl.querySelector(`.bubble-row[data-id="${cssEscape(m.id||'')}"] .bubble`);
+          if (!bubbleEl) continue;
+          renderBubbleFromCache(bubbleEl, ratchetState.cache[m.id], m.burn);
+        }
+        if (atBottom) threadEl.scrollTop = threadEl.scrollHeight;
+      });
+      activeUnsubs.push(msgsUnsub);
+    }
+
+    // Runs on every room update, not just the first. If the peer's identity
+    // key ever stops matching what this ratchet was built from — whether from
+    // their own deliberate startFreshKeys, or something less deliberate — the
+    // local chains are now derived from the wrong root and will silently fail
+    // to decrypt anything new. Surface that instead of letting it fail quietly.
+    if (ratchetState){
+      const currentPeerKeyId = pubKeyId(pair.role === 'A' ? room.keyB : room.keyA);
+      if (ratchetState.peerIdentityKeyId && currentPeerKeyId && ratchetState.peerIdentityKeyId !== currentPeerKeyId && !document.getElementById('keyChangeBanner')){
+        const banner = document.createElement('div');
+        banner.id = 'keyChangeBanner';
+        banner.className = 'card';
+        banner.style.cssText = 'border-color:var(--danger); margin-bottom:12px; padding:12px 14px;';
+        banner.innerHTML = `<div style="font-size:13px; color:var(--danger); margin-bottom:8px;">&#9888; Their key changed. Could be them starting fresh on purpose, or it could be something worth checking. Reload, then compare the safety number before trusting new messages.</div><button class="secondary" id="reloadAfterKeyChange" style="width:auto; padding:8px 14px; font-size:13px;">Reload conversation</button>`;
+        const threadEl = document.getElementById('thread');
+        if (threadEl && threadEl.parentElement) threadEl.parentElement.insertBefore(banner, threadEl);
+        const reloadBtn = document.getElementById('reloadAfterKeyChange');
+        if (reloadBtn) reloadBtn.addEventListener('click', () => { clearRatchetState(roomId); render(); });
+      }
+    }
+  });
+  activeUnsubs.push(roomUnsub);
+}
+
+function renderBubbleFromCache(bubbleEl, cached, burn){
+  const flame = burn ? '<span class="flame-badge">&#128293;</span>' : '';
+  if (!cached){ bubbleEl.innerHTML = flame + 'Unsealing…'; bubbleEl.classList.add('pending'); return; }
+  bubbleEl.classList.remove('pending');
+  if (cached.type === 'error'){ bubbleEl.innerHTML = flame + escapeHtml(cached.text); return; }
+  if (cached.type === 'image'){
+    const url = URL.createObjectURL(b64ToBlob(cached.dataB64, cached.mime));
+    bubbleEl.classList.add('bubble-image');
+    bubbleEl.innerHTML = `<img class="msg-img" src="${url}">`;
+    bubbleEl.querySelector('img').addEventListener('click', () => openLightbox(url));
+  } else if (cached.type === 'audio'){
+    const url = URL.createObjectURL(b64ToBlob(cached.dataB64, cached.mime));
+    bubbleEl.classList.add('bubble-audio');
+    bubbleEl.innerHTML = `${flame}<div class="audio-row"><audio controls src="${url}"></audio><span class="dur">${fmtDuration(cached.duration)}</span></div>${cached.transcript ? `<div class="transcript">"${escapeHtml(cached.transcript)}"</div>` : ''}`;
+  } else {
+    bubbleEl.innerHTML = flame + escapeHtml(cached.text);
+  }
+}
+
+/* ---------- boot ---------- */
+document.addEventListener('visibilitychange', () => {
+  const shield = document.getElementById('privacyShield');
+  if (shield) shield.style.display = document.hidden ? 'flex' : 'none';
+});
+
+(async function boot(){
+  await initStore();
+  const lock = loadAppLock();
+  if (lock) renderAppLockEntry(lock);
+  else render();
+})();
+</script>
+</body>
+</html>
